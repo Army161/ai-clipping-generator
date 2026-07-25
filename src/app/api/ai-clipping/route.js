@@ -18,10 +18,14 @@ export async function POST(req) {
       return NextResponse.json({ error: "Video URL is required" }, { status: 400 });
     }
 
+    const headerApiKey = req.headers.get("x-custom-api-key");
+    const customApiKey = headerApiKey || body.customApiKey || session.user.customApiKey || null;
+
     const result = await AIService.aiClipping(session.user.id, {
       video_url,
       num_highlights,
       aspect_ratio,
+      customApiKey,
     });
 
     return NextResponse.json(result);

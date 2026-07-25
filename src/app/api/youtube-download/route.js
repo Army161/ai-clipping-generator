@@ -18,9 +18,13 @@ export async function POST(req) {
       return NextResponse.json({ error: "YouTube video URL is required" }, { status: 400 });
     }
 
+    const headerApiKey = req.headers.get("x-custom-api-key");
+    const customApiKey = headerApiKey || body.customApiKey || session.user.customApiKey || null;
+
     const result = await AIService.youtubeDownload(session.user.id, {
       video_url,
       format: format || "720",
+      customApiKey,
     });
 
     return NextResponse.json(result);

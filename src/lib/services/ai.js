@@ -47,12 +47,16 @@ export const AIService = {
   /**
    * Execute a YouTube Download request
    */
-  async youtubeDownload(userId, { video_url, format = "720" }) {
-    const cost = 5; // Fixed cost for YT Download
-    await UserService.deductCredits(userId, cost);
+  async youtubeDownload(userId, { video_url, format = "720", customApiKey = null }) {
+    const isUsingCustomKey = Boolean(customApiKey && customApiKey.trim().length > 0);
+    const cost = isUsingCustomKey ? 0 : 5;
+    
+    if (!isUsingCustomKey && cost > 0) {
+      await UserService.deductCredits(userId, cost);
+    }
 
-    const apiKey = config.ai.aiclips.apiKey;
-    if (!apiKey) throw new Error("AICLIPS_API_KEY is not configured");
+    const apiKey = isUsingCustomKey ? customApiKey.trim() : (config.ai.aiclips.apiKey || config.ai.apiKey);
+    if (!apiKey) throw new Error("API Key is not configured");
 
     const webhookUrl = `${config.auth.webhook_url}/api/webhook/muapi`;
     const submitUrl = `${config.ai.aiclips.youtubeEndpoint}?webhook=${encodeURIComponent(webhookUrl)}`;
@@ -115,13 +119,17 @@ export const AIService = {
   /**
    * Execute an AI Clipping request
    */
-  async aiClipping(userId, { video_url, num_highlights = 3, aspect_ratio = "9:16" }) {
+  async aiClipping(userId, { video_url, num_highlights = 3, aspect_ratio = "9:16", customApiKey = null }) {
     const numHighlights = parseInt(num_highlights);
-    const cost = await this.calculateClippingCost(video_url, numHighlights);
-    await UserService.deductCredits(userId, cost);
+    const isUsingCustomKey = Boolean(customApiKey && customApiKey.trim().length > 0);
+    const cost = isUsingCustomKey ? 0 : await this.calculateClippingCost(video_url, numHighlights);
 
-    const apiKey = config.ai.aiclips.apiKey;
-    if (!apiKey) throw new Error("AICLIPS_API_KEY is not configured");
+    if (!isUsingCustomKey && cost > 0) {
+      await UserService.deductCredits(userId, cost);
+    }
+
+    const apiKey = isUsingCustomKey ? customApiKey.trim() : (config.ai.aiclips.apiKey || config.ai.apiKey);
+    if (!apiKey) throw new Error("API Key is not configured");
 
     const webhookUrl = `${config.auth.webhook_url}/api/webhook/muapi`;
     const submitUrl = `${config.ai.aiclips.clippingEndpoint}?webhook=${encodeURIComponent(webhookUrl)}`;
@@ -183,7 +191,7 @@ export const AIService = {
   /**
    * Check the status of a specific generation (Poll DB ONLY)
    */
-  async checkStatus(requestId) {
+  async checkStatus(requestId, customApiKey = null) {
     const creationModel = prisma.creation || prisma.Creation;
     if (!creationModel) return { status: "processing" };
 
@@ -208,7 +216,7 @@ export const AIService = {
 
     // Fallback: Check MuAPI directly if still processing (helps when webhooks fail on localhost)
     try {
-      const apiKey = config.ai.aiclips.apiKey;
+      const apiKey = (customApiKey && customApiKey.trim().length > 0) ? customApiKey.trim() : (config.ai.aiclips.apiKey || config.ai.apiKey);
       const pollUrl = `https://api.muapi.ai/api/v1/predictions/${requestId}/result`;
       
       const res = await fetch(pollUrl, {
